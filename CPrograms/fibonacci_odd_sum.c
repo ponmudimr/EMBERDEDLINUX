@@ -1,4 +1,4 @@
-#include <stdio.h>
+    #include <stdio.h>
 
 int main() {
 
@@ -16,7 +16,7 @@ int main() {
         printf("%d ", a);
 
         if(a % 2 != 0) {
-            odd_sum += a;
+            odd_sum -= a;
         }
 
         next = a + b;
