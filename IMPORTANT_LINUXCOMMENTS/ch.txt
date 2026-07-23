@@ -1,0 +1,463 @@
+==========================================================
+        LINUX COMMANDS CHEAT SHEET (BASIC → PRO)
+==========================================================
+
+========================
+1. FILE & DIRECTORY
+========================
+
+pwd                     # Print current working directory
+ls                      # List files
+ls -l                   # Long listing
+ls -la                  # Show hidden files
+ls -lh                  # Human readable sizes
+ls -lt                  # Sort by newest
+ls -R                   # Recursive listing
+
+cd folder               # Change directory
+cd ..                   # Go back one directory
+cd ~                    # Home directory
+cd -                    # Previous directory
+
+mkdir folder            # Create directory
+mkdir -p a/b/c          # Create nested directories
+
+rmdir folder            # Remove empty directory
+rm file                 # Delete file
+rm -r folder            # Delete directory
+rm -rf folder           # Force delete
+
+cp file newfile         # Copy file
+cp -r dir backup        # Copy directory
+
+mv old new              # Rename
+mv file folder/         # Move file
+
+touch file.txt          # Create empty file
+
+========================
+2. VIEW FILES
+========================
+
+cat file.txt            # Display file
+less file.txt           # Scroll file
+more file.txt           # Page by page
+head file.txt           # First 10 lines
+tail file.txt           # Last 10 lines
+tail -f logfile.log     # Live log monitoring
+
+nl file                 # Show line numbers
+
+========================
+3. SEARCHING
+========================
+
+find . -name "*.pdf"
+find / -type f
+find . -size +100M
+
+locate filename
+updatedb
+
+which python
+whereis git
+
+grep "hello" file.txt
+grep -rn "main" .
+grep -i error log.txt
+
+========================
+4. DISK
+========================
+
+df -h                   # Disk usage
+du -sh folder
+du -ah
+
+lsblk
+blkid
+mount
+umount
+
+========================
+5. PERMISSIONS
+========================
+
+chmod 755 file
+chmod +x script.sh
+
+chown user file
+chgrp group file
+
+========================
+6. USERS
+========================
+
+whoami
+id
+who
+w
+groups
+
+sudo command
+
+passwd
+
+========================
+7. PROCESS
+========================
+
+ps
+ps aux
+
+top
+htop
+
+kill PID
+kill -9 PID
+pkill firefox
+
+jobs
+bg
+fg
+
+========================
+8. NETWORK
+========================
+
+ip addr
+ip route
+
+ping google.com
+
+hostname
+hostnamectl
+
+ss -tulnp
+netstat -tulnp
+
+curl https://example.com
+wget URL
+
+ssh user@server
+
+scp file user@host:/path
+
+========================
+9. ARCHIVES
+========================
+
+zip file.zip file.txt
+unzip file.zip
+
+tar -cvf backup.tar folder
+tar -xvf backup.tar
+
+tar -czvf backup.tar.gz folder
+tar -xzvf backup.tar.gz
+
+========================
+10. PACKAGE MANAGER
+========================
+
+Ubuntu
+
+sudo apt update
+sudo apt upgrade
+sudo apt install git
+sudo apt remove git
+
+Fedora
+
+sudo dnf update
+sudo dnf install git
+sudo dnf remove git
+
+========================
+11. SYSTEM INFO
+========================
+
+uname -a
+
+lscpu
+
+free -h
+
+uptime
+
+neofetch
+
+history
+
+date
+cal
+
+========================
+12. EDITORS
+========================
+
+nano file
+
+vim file
+
+code .
+
+========================
+13. GIT
+========================
+
+git init
+
+git clone URL
+
+git status
+
+git add .
+
+git commit -m "message"
+
+git log
+
+git diff
+
+git branch
+
+git checkout branch
+
+git switch branch
+
+git merge branch
+
+git remote -v
+
+git push
+
+git pull
+
+========================
+14. SSH
+========================
+
+ssh-keygen -t ed25519
+
+cat ~/.ssh/id_ed25519.pub
+
+ssh -T git@github.com
+
+ssh user@host
+
+========================
+15. SERVICES
+========================
+
+systemctl status service
+
+systemctl start service
+
+systemctl stop service
+
+systemctl restart service
+
+systemctl enable service
+
+systemctl disable service
+
+========================
+16. CRON
+========================
+
+crontab -l
+
+crontab -e
+
+Example:
+
+*/15 * * * * /home/user/script.sh
+
+========================
+17. SYSTEMD
+========================
+
+systemctl list-units
+
+journalctl
+
+journalctl -xe
+
+journalctl -u nginx
+
+========================
+18. ENVIRONMENT
+========================
+
+echo $PATH
+
+env
+
+export NAME=value
+
+source ~/.bashrc
+
+========================
+19. FILE PERMISSIONS
+========================
+
+r = Read
+w = Write
+x = Execute
+
+755 = rwxr-xr-x
+
+644 = rw-r--r--
+
+777 = rwxrwxrwx
+
+========================
+20. REDIRECTION
+========================
+
+command > file
+
+command >> file
+
+command < file
+
+command1 | command2
+
+========================
+21. MONITORING
+========================
+
+watch -n 1 command
+
+watch ls
+
+vmstat
+
+iostat
+
+dmesg
+
+========================
+22. ADVANCED SEARCH
+========================
+
+find . -type f -mtime -7
+
+find . -empty
+
+find . -name "*.log" -delete
+
+========================
+23. DISK MANAGEMENT
+========================
+
+fdisk -l
+
+parted
+
+mkfs.ext4
+
+mount
+
+umount
+
+========================
+24. NETWORK DEBUG
+========================
+
+dig google.com
+
+nslookup google.com
+
+traceroute google.com
+
+mtr google.com
+
+========================
+25. FILE TRANSFER
+========================
+
+rsync -av source destination
+
+rsync -avz file user@host:/path
+
+========================
+26. PERFORMANCE
+========================
+
+sar
+
+iotop
+
+iftop
+
+nload
+
+========================
+27. SECURITY
+========================
+
+sudo
+
+visudo
+
+fail2ban
+
+ufw status
+
+firewall-cmd --list-all
+
+========================
+28. SHELL
+========================
+
+echo Hello
+
+read name
+
+if
+
+for
+
+while
+
+case
+
+function
+
+========================
+29. ALIASES
+========================
+
+alias ll="ls -lah"
+
+alias gs="git status"
+
+========================
+30. USEFUL SHORTCUTS
+========================
+
+Ctrl + C     Stop process
+
+Ctrl + Z     Suspend process
+
+Ctrl + D     Logout
+
+Ctrl + L     Clear screen
+
+Ctrl + R     Search history
+
+Tab          Auto-complete
+
+!!           Previous command
+
+!git         Last git command
+
+history      Command history
+
+clear        Clear terminal
+
+==========================================================
+          END OF LINUX COMMAND CHEAT SHEET
+==========================================================
