@@ -1,0 +1,21 @@
+# Local build tools and executables
+bin/
+
+# Compiled object files & binaries
+*.o
+*.elf
+*.bin
+*.hex
+*.so
+*.a
+*.out
+*.exe
+
+# Arduino IDE / build caches
+.build/
+build/
+*.build.xml
+
+# System files
+.DS_Store
+Thumbs.db
