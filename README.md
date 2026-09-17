@@ -14,8 +14,10 @@ EMBERDEDLINUX/
 ├── ESP32WebGraph/           # ESP32 real-time web-based graph visualization
 ├── GPS/                     # Linux TTY driver testing & NMEA GPS reading (u-blox M8N / NEO-6M)
 ├── IMPORTANT_LINUXCOMMENTS/ # Linux system command cheatsheets & references
+├── LabNetworkNotes/         # Central lab server access: NIS/NFS vs sshfs on a laptop
 ├── MQ2_ArduinoMega/         # MQ-2 gas & smoke sensor with Arduino Mega
 ├── ServoControl/            # PWM Servo Motor Control Sketch
+├── ZephyrLabServer/         # Offline Zephyr RTOS distribution over LAN for a teaching lab
 └── README.md                # Repository documentation
 ```
 
@@ -33,6 +35,8 @@ EMBERDEDLINUX/
 | [`ServoControl/`](./ServoControl) | Arduino / Microcontroller | PWM servo motor sweep and angle control |
 | [`CPrograms/`](./CPrograms) | Embedded C / Linux | Fundamental C algorithms (Fibonacci, odd sum calculation) |
 | [`IMPORTANT_LINUXCOMMENTS/`](./IMPORTANT_LINUXCOMMENTS) | Linux System | Essential Linux terminal commands reference guide |
+| [`ZephyrLabServer/`](./ZephyrLabServer) | Zephyr RTOS, Linux server | Serving a full Zephyr toolchain to ~20 laptops over LAN, with no internet needed per machine |
+| [`LabNetworkNotes/`](./LabNetworkNotes) | NIS, NFS, sshfs | Central lab authentication, and why a laptop needs a different approach |
 
 ---
 
