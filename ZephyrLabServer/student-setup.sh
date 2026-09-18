@@ -16,11 +16,12 @@ if command -v apt >/dev/null 2>&1; then
   sudo apt update
   sudo apt install -y --no-install-recommends \
     git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget \
-    xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
+    xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1 \
+    openocd
 elif command -v dnf >/dev/null 2>&1; then
   sudo dnf install -y \
     git cmake ninja-build gperf ccache dfu-util dtc wget xz file make \
-    gcc gcc-c++ SDL2-devel file-libs
+    gcc gcc-c++ SDL2-devel file-libs openocd
 else
   echo "ERROR: need apt or dnf; neither found. Install build tools manually."
   exit 1
@@ -68,6 +69,13 @@ if [ -n "$ADDGROUPS" ]; then
   echo "Added to: $ADDGROUPS"
 else
   echo "Note: no dialout/plugdev group found; you may need to set USB permissions manually."
+fi
+
+# openocd and the SDK both drop udev rules; reload so a debug probe works
+# without rebooting. The board still needs a replug to pick up new rules.
+if command -v udevadm >/dev/null 2>&1; then
+    sudo udevadm control --reload-rules && sudo udevadm trigger
+    echo "udev rules reloaded (unplug and replug your board before flashing)"
 fi
 
 cat << 'EOF'

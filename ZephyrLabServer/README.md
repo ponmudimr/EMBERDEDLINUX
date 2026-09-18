@@ -232,6 +232,98 @@ wget -O zephyrproject.tar.xz "http://<server>:8080/zephyrproject.tar.xz$ID"
 
 ---
 
+## Flashing a Real Board
+
+Building is only half of it. The first flash attempt on a new machine
+commonly fails on USB permissions, not on anything Zephyr did.
+
+### A known-good build
+
+Verified on an ST **nucleo_f446re** (STM32F446xx) with Zephyr 4.4.2,
+SDK 1.0.1 (`arm-zephyr-eabi`), west 1.5.0 and the bundled Python 3.12:
+
+```bash
+west build -p always -b nucleo_f446re samples/basic/blinky
+```
+
+```text
+FLASH:       17724 B / 512 KB   3.38%
+RAM:          4480 B / 128 KB   3.42%
+BACKUP_SRAM:     0 B / 4 KB     0.00%
+SRAM0:           0 B / 128 KB   0.00%
+IDT_LIST:        0 B / 32 KB    0.00%
+```
+
+Artifacts land in `build/zephyr/` as `zephyr.elf` and `zephyr.hex`.
+
+### The failure
+
+```bash
+west flash -r openocd
+```
+
+```text
+Error: libusb_open() failed with LIBUSB_ERROR_ACCESS
+Error: open failed
+FATAL ERROR: command exited with status 1
+```
+
+Nothing is wrong with the build. `LIBUSB_ERROR_ACCESS` means the user
+account is not allowed to open the ST-Link debug probe's USB device node.
+It is a Linux udev permissions problem, and it will hit every freshly
+installed machine that has never flashed a board before.
+
+### The fix
+
+Installing OpenOCD from the distribution brings the udev rules for
+ST-Link V2 / V2.1 / V3 with it:
+
+```bash
+sudo apt install openocd      # Debian / Ubuntu
+sudo dnf install openocd      # Fedora / RHEL
+
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
+Then **unplug and replug the board** and retry `west flash`. The replug
+matters: udev applies rules when a device appears, so a board that was
+already connected keeps its old permissions.
+
+To confirm the cause before fixing it, `sudo west flash -r openocd`
+should succeed. If it works under `sudo` and fails without, the problem
+is permissions and nothing else. Do not leave flashing as a `sudo`
+operation though — fix the rules instead.
+
+### If the packaged rules miss your board revision
+
+Some newer probe revisions ship with a USB product ID that the packaged
+rules predate. Find the probe's IDs, then write a rule for it:
+
+```bash
+lsusb | grep -i st-link
+# Bus 001 Device 007: ID 0483:374b STMicroelectronics ST-LINK/V2.1
+```
+
+```bash
+sudo tee /etc/udev/rules.d/60-stlink.rules > /dev/null << 'EOF'
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="374b", MODE="0666", TAG+="uaccess"
+EOF
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+Replace `374b` with the product ID from `lsusb`. `TAG+="uaccess"` grants
+access to whoever is physically logged in, which is the modern approach;
+`MODE="0666"` is the blunt fallback for systems where that does not apply.
+
+### Worth knowing
+
+The Zephyr SDK's own `setup.sh` registers udev rules for the tools it
+ships, but that does not reliably cover every vendor debug probe. On a
+lab fleet where students use ST nucleo boards, installing `openocd` as
+part of the machine build avoids every student hitting this individually
+on their first flash.
+
 ## Result
 
 | | Before | After |
