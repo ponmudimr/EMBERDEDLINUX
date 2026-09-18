@@ -1,0 +1,7 @@
+{
+  "uuid": "hotspot-toggle@local",
+  "name": "Hotspot Toggle",
+  "description": "Quick Settings toggle for the concurrent AP+STA WiFi hotspot (hostapd on ap0).",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "version": 1
+}

@@ -1,0 +1,205 @@
+#!/bin/bash
+# hotspot -- share a WiFi connection over a hotspot from the SAME WiFi card,
+#            while staying connected (Windows "Mobile Hotspot" equivalent).
+#
+# Why not NetworkManager's built-in hotspot?
+#   NM hands every WiFi device it owns to wpa_supplicant, which brings the
+#   interface up as a STATION first. iwlwifi permits only ONE managed interface,
+#   so a second one fails with EBUSY and NM instead seizes the primary
+#   interface -- dropping the very connection you wanted to share.
+#
+# What this does instead:
+#   Creates a virtual AP-type interface (ap0) on the same PHY and drives it with
+#   hostapd directly, out of NetworkManager's reach. The card advertises
+#   "#{ managed } <= 1, #{ AP } <= 1, #channels <= 1", so 1 client + 1 AP run
+#   concurrently as long as BOTH sit on the same channel -- which is why the
+#   AP channel is read from the live client link on every start.
+#
+# Usage:  sudo hotspot {on|off|status}
+# Config: /etc/hotspot.conf  (SSID, PSK, NET, PARENT, AP)
+
+set -euo pipefail
+
+AP=ap0
+SSID=fedora-hotspot
+PSK=
+NET=192.168.12
+PARENT=
+CONF=/etc/hotspot.conf
+
+[[ -r $CONF ]] && . "$CONF"
+
+RUN=/run/hotspot
+HOSTAPD_CONF=$RUN/hostapd.conf
+DNSMASQ_CONF=$RUN/dnsmasq.conf
+
+[[ $EUID -eq 0 ]] || { echo "run with sudo" >&2; exit 1; }
+
+# The WiFi interface currently holding a connection (skip our own AP iface).
+detect_parent() {
+    local dir iface
+    for dir in /sys/class/net/*/wireless; do
+        [[ -e $dir ]] || continue
+        iface=$(basename "$(dirname "$dir")")
+        [[ $iface == "$AP" ]] && continue
+        if iw dev "$iface" link 2>/dev/null | grep -q '^Connected'; then
+            echo "$iface"
+            return 0
+        fi
+    done
+    return 1
+}
+
+start() {
+    mkdir -p "$RUN"
+
+    if [[ -z $PSK ]]; then
+        echo "ERROR: no passphrase set. Create $CONF with at least:" >&2
+        echo "         SSID=my-hotspot" >&2
+        echo "         PSK=your-passphrase   # 8-63 characters" >&2
+        exit 1
+    fi
+    if (( ${#PSK} < 8 || ${#PSK} > 63 )); then
+        echo "ERROR: PSK must be 8-63 characters (WPA2 requirement)." >&2
+        exit 1
+    fi
+
+    if [[ -z $PARENT ]]; then
+        PARENT=$(detect_parent) || {
+            echo "ERROR: no connected WiFi interface found." >&2
+            echo "       Connect to WiFi first, or set PARENT= in $CONF." >&2
+            exit 1; }
+    fi
+
+    local chan freq upstream
+    chan=$(iw dev "$PARENT" info | awk '/channel/{print $2}')
+    freq=$(iw dev "$PARENT" info | awk '/channel/{gsub(/[()]/,"",$3); print $3}')
+    upstream=$(iw dev "$PARENT" link | awk '/SSID/{$1="";print substr($0,2)}')
+
+    # The AP is pinned to the client's channel, so a 5GHz client link can only
+    # work if that exact channel permits beaconing. Under many regulatory
+    # domains every 5GHz channel is no-IR or DFS, which rules this out.
+    if (( chan > 14 )); then
+        if iw phy "phy$(iw dev "$PARENT" info | awk '/wiphy/{print $2}')" info |
+               grep -q "$freq.*MHz.*no IR"; then
+            echo "ERROR: client link is on 5GHz channel $chan, which is flagged no-IR" >&2
+            echo "       in this regulatory domain -- no AP can start there." >&2
+            echo "       Switch the client to 2.4GHz first:" >&2
+            echo "         nmcli con modify '$upstream' 802-11-wireless.band bg" >&2
+            echo "         nmcli con up '$upstream'" >&2
+            exit 1
+        fi
+    fi
+
+    echo "Client link: $upstream on channel $chan (${freq} MHz) -- AP will match."
+
+    stop_quiet
+
+    # Recreate ap0 as a true AP-type interface with its own MAC.
+    iw dev "$AP" del 2>/dev/null || true
+    iw dev "$PARENT" interface add "$AP" type __ap
+    local pmac b c d e f
+    pmac=$(cat "/sys/class/net/$PARENT/address")
+    IFS=: read -r _ b c d e f <<< "$pmac"
+    ip link set "$AP" address "02:$b:$c:$d:$e:$(printf '%02x' $(( (0x$f + 1) & 0xff )))"
+
+    # Upstream DNS from the live link, skipping the systemd-resolved stub
+    # (127.0.0.53) which would make dnsmasq forward queries back to itself.
+    local dns
+    mapfile -t dns < <(nmcli -g IP4.DNS device show "$PARENT" 2>/dev/null |
+                       tr '|' '\n' | grep -v '^127\.' | grep -v '^$')
+    (( ${#dns[@]} )) || dns=(1.1.1.1 8.8.8.8)
+
+    local hwmode=g
+    (( chan > 14 )) && hwmode=a
+
+    cat > "$HOSTAPD_CONF" <<EOF
+interface=$AP
+driver=nl80211
+ssid=$SSID
+country_code=$(iw reg get | awk -F'[: ]' '/^country/{print $2; exit}')
+hw_mode=$hwmode
+channel=$chan
+ieee80211n=1
+wmm_enabled=1
+auth_algs=1
+ignore_broadcast_ssid=0
+wpa=2
+wpa_passphrase=$PSK
+wpa_key_mgmt=WPA-PSK
+rsn_pairwise=CCMP
+EOF
+    chmod 600 "$HOSTAPD_CONF"
+
+    { echo "interface=$AP"
+      echo "bind-interfaces"
+      echo "except-interface=lo"
+      echo "dhcp-range=$NET.50,$NET.150,12h"
+      echo "dhcp-option=3,$NET.1"
+      echo "dhcp-option=6,$NET.1"
+      echo "no-resolv"
+      for s in "${dns[@]}"; do echo "server=$s"; done
+    } > "$DNSMASQ_CONF"
+
+    ip addr flush dev "$AP"
+    ip addr add "$NET.1/24" dev "$AP"
+    ip link set "$AP" up
+
+    sysctl -qw net.ipv4.ip_forward=1
+    firewall-cmd -q --zone=trusted --add-interface="$AP" 2>/dev/null || true
+    firewall-cmd -q --zone="$(firewall-cmd --get-zone-of-interface="$PARENT")" \
+                 --add-masquerade
+
+    hostapd -B -P "$RUN/hostapd.pid" "$HOSTAPD_CONF" >"$RUN/hostapd.log" 2>&1 || {
+        echo "hostapd failed to start; log:" >&2
+        cat "$RUN/hostapd.log" >&2
+        exit 1; }
+    dnsmasq --conf-file="$DNSMASQ_CONF" --pid-file="$RUN/dnsmasq.pid"
+
+    echo "$PARENT" > "$RUN/parent"
+
+    sleep 1
+    echo
+    echo "  Hotspot up:  SSID $SSID"
+    echo "  Channel $chan, gateway $NET.1, clients get $NET.50-150"
+    echo "  Sharing the $upstream connection."
+}
+
+stop_quiet() {
+    [[ -f $RUN/dnsmasq.pid ]] && kill "$(cat "$RUN/dnsmasq.pid")" 2>/dev/null || true
+    [[ -f $RUN/hostapd.pid ]] && kill "$(cat "$RUN/hostapd.pid")" 2>/dev/null || true
+    rm -f "$RUN/dnsmasq.pid" "$RUN/hostapd.pid"
+    sleep 0.5
+}
+
+stop() {
+    stop_quiet
+    firewall-cmd -q --zone=trusted --remove-interface="$AP" 2>/dev/null || true
+    iw dev "$AP" del 2>/dev/null || true
+    rm -f "$RUN/parent"
+    echo "Hotspot stopped. WiFi client connection untouched."
+}
+
+status() {
+    local parent
+    parent=${PARENT:-$(cat "$RUN/parent" 2>/dev/null || detect_parent || true)}
+
+    if [[ -f $RUN/hostapd.pid ]] && kill -0 "$(cat "$RUN/hostapd.pid")" 2>/dev/null; then
+        echo "Hotspot RUNNING -- SSID $SSID"
+        echo "Connected clients:"
+        iw dev "$AP" station dump 2>/dev/null | awk '/Station/{print "  "$2}'
+    else
+        echo "Hotspot stopped."
+    fi
+    echo
+    if [[ -n $parent ]]; then
+        iw dev "$parent" link | grep -E 'SSID|freq' || echo "  $parent not connected"
+    fi
+}
+
+case "${1:-}" in
+    on|start)  start ;;
+    off|stop)  stop ;;
+    status)    status ;;
+    *) echo "usage: sudo hotspot {on|off|status}" >&2; exit 1 ;;
+esac

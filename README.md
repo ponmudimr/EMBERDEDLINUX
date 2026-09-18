@@ -17,6 +17,7 @@ EMBERDEDLINUX/
 ├── LabNetworkNotes/         # Central lab server access: NIS/NFS vs sshfs on a laptop
 ├── MQ2_ArduinoMega/         # MQ-2 gas & smoke sensor with Arduino Mega
 ├── ServoControl/            # PWM Servo Motor Control Sketch
+├── WiFiHotspot/             # Concurrent AP+STA WiFi hotspot on Fedora (hostapd on a virtual ap0)
 ├── ZephyrLabServer/         # Offline Zephyr RTOS distribution over LAN for a teaching lab
 └── README.md                # Repository documentation
 ```
@@ -37,6 +38,7 @@ EMBERDEDLINUX/
 | [`IMPORTANT_LINUXCOMMENTS/`](./IMPORTANT_LINUXCOMMENTS) | Linux System | Essential Linux terminal commands reference guide |
 | [`ZephyrLabServer/`](./ZephyrLabServer) | Zephyr RTOS, Linux server | Serving a full Zephyr toolchain to ~20 laptops over LAN, with no internet needed per machine |
 | [`LabNetworkNotes/`](./LabNetworkNotes) | NIS, NFS, sshfs | Central lab authentication, and why a laptop needs a different approach |
+| [`WiFiHotspot/`](./WiFiHotspot) | Fedora 44, GNOME 50, Intel CNVi (`iwlwifi`) | Share a WiFi connection over a hotspot from the same card, with a GNOME Quick Settings toggle |
 
 ---
 
@@ -100,6 +102,23 @@ Interfaces an MQ-2 combustible gas and smoke sensor with an Arduino Mega 2560 fo
 Located in [`ServoControl/`](./ServoControl)
 
 Demonstrates precise position and angle control of standard servo motors using PWM output pins.
+
+---
+
+### 7. WiFi Hotspot (Concurrent AP + Station)
+Located in [`WiFiHotspot/`](./WiFiHotspot)
+
+Shares a WiFi connection over a hotspot from the **same** WiFi card while staying connected to that network — the Linux equivalent of Windows' *Mobile Hotspot*.
+
+* **Why not NetworkManager's built-in hotspot**: `iwlwifi` permits only one `managed` interface, and NM hands every WiFi device to `wpa_supplicant`, which brings each up as a station first. The second interface fails with `EBUSY`, and NM seizes the primary interface — dropping the connection being shared.
+* **Approach**: a virtual AP-type interface (`ap0`) on the same PHY, driven by `hostapd` directly, with `dnsmasq` for DHCP and `firewalld` masquerade for NAT.
+* **Channel constraint**: the card allows 1 station + 1 AP only on a *single* channel, so the AP is pinned to the live client channel on every start. Under regulatory domain `IN` all 5 GHz channels are `no-IR` or DFS, making 2.4 GHz mandatory.
+* **GNOME integration**: a Quick Settings toggle (GNOME 45+) alongside Wi-Fi and Bluetooth, backed by a systemd unit and a polkit rule scoped to that single unit.
+
+```bash
+sudo ./install.sh     # then log out and back in for the toggle
+sudo hotspot on       # or use the Quick Settings tile
+```
 
 ---
 

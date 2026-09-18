@@ -1,0 +1,13 @@
+[Unit]
+Description=WiFi hotspot sharing the active WiFi connection (concurrent AP+STA)
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/hotspot on
+ExecStop=/usr/local/bin/hotspot off
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+// Let members of "wheel" start/stop hotspot.service without a password,
+// so the GNOME Quick Settings toggle works without a polkit prompt.
+// Scoped to this one unit -- it grants nothing else.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") == "hotspot.service" &&
+        subject.isInGroup("wheel") &&
+        subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});
